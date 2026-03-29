@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
+.env
+.env.local
+.env.*.local
+.cache/
+.wrangler/
+cf-adapter/node_modules/
+cf-adapter/dist/
+*.d.ts
+*.d.ts.map
+*.js.map
