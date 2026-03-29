@@ -1,12 +1,12 @@
-import { emojiIcon, imageIcon, notionIcon, place } from "./builder.js";
-import { getSchema, j } from "./schema-builder.js";
-import { Worker } from "./worker.js";
-export {
-  Worker,
-  emojiIcon,
-  getSchema,
-  imageIcon,
-  j,
-  notionIcon,
-  place
-};
+/*!
+ * mime-db
+ * Copyright(c) 2014 Jonathan Ong
+ * Copyright(c) 2015-2022 Douglas Christopher Wilson
+ * MIT Licensed
+ */
+
+/**
+ * Module exports.
+ */
+
+module.exports = require('./db.json')
