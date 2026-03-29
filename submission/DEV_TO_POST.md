@@ -190,7 +190,20 @@ Status: ✅ Delivered
 
 ---
 
-## What Actually Works
+## Why This Approach Works
+
+While other Notion MCP projects build full-stack backends with complex AI pipelines, Cortana focuses on **one core promise: instant answers from your Notion workspace**.
+
+No auth complexity. No multi-step processing. No ML models. Just:
+
+1. **You send a WhatsApp message**
+2. **Cortana classifies it** (6 semantic domains)
+3. **Searches your Notion workspace** (real pages, real titles)
+4. **You get results** (2 seconds)
+
+That's it. The entire product fits in ~300 lines of TypeScript across two workers.
+
+**The philosophy:** Build for a real constraint (mobile, async communication) instead of building for "everything". If you can answer a question in 2 seconds via WhatsApp, that's better than opening Notion and scrolling for 5 minutes.
 
 By 4:30 AM, the full pipeline was live:
 
@@ -323,8 +336,9 @@ npx wrangler deploy
 1. **Keychain is your enemy in CI/CD** — Export env vars explicitly, especially on macOS
 2. **Read the API docs, not your assumptions** — Notion Workers tools aren't HTTP-callable
 3. **Twilio WhatsApp requires `whatsapp:` URIs** — Not documented in the first place I looked
-4. **Keyword classification works better than you'd think** — For MVP-stage semantic routing
-5. **Ship fast, iterate later** — Spent 4 hours debugging, 2 hours shipping. The shipping part was the fun part.
+4. **Fetch full page objects to get real titles** — Notion Search API returns IDs, not titles. You need a second API call to `GET /v1/pages/{id}` to pull actual page properties.
+5. **Keyword classification works better than you'd think** — For MVP-stage semantic routing
+6. **Ship fast, iterate later** — Spent 4 hours debugging, 2 hours shipping. The shipping part was the fun part.
 
 ---
 
