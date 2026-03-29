@@ -1,100 +1,226 @@
-# mime-db
+# Cortana — WhatsApp → Notion AI Command Center
 
-[![NPM Version][npm-version-image]][npm-url]
-[![NPM Downloads][npm-downloads-image]][npm-url]
-[![Node.js Version][node-image]][node-url]
-[![Build Status][ci-image]][ci-url]
-[![Coverage Status][coveralls-image]][coveralls-url]
+**A real-time AI assistant that classifies WhatsApp messages and searches your Notion workspace.**
 
-This is a large database of mime types and information about them.
-It consists of a single, public JSON file and does not include any logic,
-allowing it to remain as un-opinionated as possible with an API.
-It aggregates data from the following sources:
+Send a message to WhatsApp, get instant results from your Notion database. Built for the MLH Notion MCP Challenge (March 2026).
 
-- http://www.iana.org/assignments/media-types/media-types.xhtml
-- http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types
-- http://hg.nginx.org/nginx/raw-file/default/conf/mime.types
+## 🎯 What It Does
 
-## Installation
+1. **You send a WhatsApp message** (e.g., "lab results January")
+2. **Cortana classifies it** against 6 life domains (Personal, Health, Work, Projects, Growth, Data)
+3. **Searches your Notion workspace** for matching pages
+4. **Replies via WhatsApp** with the domain + matched pages
 
+**Live example:**
+- Message: `"Tell me about R-Cubed"`
+- Response: `🟦 Work` — Found 4 results (R.C Sales Review, Event in R-Cubed, etc.)
+
+## 🏗️ Architecture
+
+```
+WhatsApp Message
+    ↓
+Twilio Sandbox Webhook
+    ↓
+Cloudflare Worker (CF Adapter)
+    ├─ Parse Twilio form data
+    ├─ Classify message (6 domains)
+    └─ Search Notion API
+    ↓
+Blueprint Classification + Notion Search Results
+    ↓
+Twilio WhatsApp Reply
+    ↓
+Message Delivered to You
+```
+
+### Components
+
+| Component | Role | Tech Stack |
+|-----------|------|-----------|
+| **Notion Worker "Zeta"** | Tool definitions & execution | Notion Workers SDK (`@notionhq/workers`) |
+| **CF Adapter** | HTTP gateway, classification logic | Cloudflare Workers, TypeScript |
+| **Twilio Integration** | WhatsApp message routing | Twilio WhatsApp Sandbox API |
+| **Notion Search** | Page lookup | Notion API (`@notionhq/client`) |
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 18+
+- Cloudflare account (free tier works)
+- Twilio account (free trial)
+- Notion integration token
+
+### 1. Clone & Install
 ```bash
-npm install mime-db
+git clone https://github.com/zainkhan1994/cortana-notion-mcp.git
+cd cortana-worker-full
+npm install
+cd cf-adapter && npm install && cd ..
 ```
 
-### Database Download
+### 2. Deploy Notion Worker (Zeta)
+```bash
+# Set env vars from Keychain (macOS)
+export NOTION_API_TOKEN=$(security find-generic-password -s "notion-cli" -a "YOUR_WORKSPACE_ID" -w)
+export NOTION_WORKSPACE_ID="YOUR_WORKSPACE_ID"
 
-If you're crazy enough to use this in the browser, you can just grab the
-JSON file using [jsDelivr](https://www.jsdelivr.com/). It is recommended to
-replace `master` with [a release tag](https://github.com/jshttp/mime-db/tags)
-as the JSON format may change in the future.
+# Login & deploy
+ntn login
+ntn workers deploy --name Zeta
 
-```
-https://cdn.jsdelivr.net/gh/jshttp/mime-db@master/db.json
-```
-
-## Usage
-
-```js
-var db = require('mime-db')
-
-// grab data on .js files
-var data = db['application/javascript']
+# Set worker env vars
+ntn workers env set NOTION_API_TOKEN="ntn_YOUR_TOKEN_HERE"
 ```
 
-## Data Structure
+### 3. Deploy CF Adapter
+```bash
+cd cf-adapter
+npm install
+npx wrangler login
+npx wrangler deploy
 
-The JSON file is a map lookup for lowercased mime types.
-Each mime type has the following properties:
+# Set CF secrets
+npx wrangler secret put NOTION_API_TOKEN
+npx wrangler secret put TWILIO_ACCOUNT_SID
+npx wrangler secret put TWILIO_AUTH_TOKEN
+```
 
-- `.source` - where the mime type is defined.
-    If not set, it's probably a custom media type.
-    - `apache` - [Apache common media types](http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types)
-    - `iana` - [IANA-defined media types](http://www.iana.org/assignments/media-types/media-types.xhtml)
-    - `nginx` - [nginx media types](http://hg.nginx.org/nginx/raw-file/default/conf/mime.types)
-- `.extensions[]` - known extensions associated with this mime type.
-- `.compressible` - whether a file of this type can be gzipped.
-- `.charset` - the default charset associated with this type, if any.
+### 4. Wire Twilio Webhook
+In Twilio Console → Messaging → Try it out → WhatsApp Sandbox → Sandbox settings:
+- **When a message comes in:** `https://cortana-twilio-adapter.cortana-khanstruct.workers.dev/whatsapp`
+- **Method:** POST
+- Click **Save**
 
-If unknown, every property could be `undefined`.
+### 5. Test
+Send a message to `+14155238886` from WhatsApp (after joining sandbox with code `join powerful-torn`).
 
-## Contributing
+## 📦 Project Structure
 
-To edit the database, only make PRs against `src/custom-types.json` or
-`src/custom-suffix.json`.
+```
+cortana-worker-full/
+├── src/
+│   ├── index.ts          # Notion Worker tools (classifyAndRespond, triageBacklog, dispatchBlueprint)
+│   └── webhook.ts        # Webhook handler (reference)
+├── cf-adapter/
+│   ├── index.ts          # CF Worker: Twilio gateway + classification
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── wrangler.toml     # Cloudflare config
+├── package.json
+├── tsconfig.json
+└── README.md
+```
 
-The `src/custom-types.json` file is a JSON object with the MIME type as the
-keys and the values being an object with the following keys:
+## 🧠 How Classification Works
 
-- `compressible` - leave out if you don't know, otherwise `true`/`false` to
-  indicate whether the data represented by the type is typically compressible.
-- `extensions` - include an array of file extensions that are associated with
-  the type.
-- `notes` - human-readable notes about the type, typically what the type is.
-- `sources` - include an array of URLs of where the MIME type and the associated
-  extensions are sourced from. This needs to be a [primary source](https://en.wikipedia.org/wiki/Primary_source);
-  links to type aggregating sites and Wikipedia are _not acceptable_.
+The CF adapter uses keyword-based classification:
 
-To update the build, run `npm run build`.
+| Domain | Keywords | Emoji |
+|--------|----------|-------|
+| **Health** | health, medical, lab, results, fitness, supplement, bloodwork | 🟨 |
+| **Work** | work, job, consulting, client, R-Cubed | 🟦 |
+| **Projects** | project, build, code, cortana, hackathon, github | 🟪 |
+| **Growth** | learning, study, course, certification, AI, ML | ⬛ |
+| **Personal** | personal, family, account, finance, home | 🟥 |
+| **Data** | archive, import, database, notion, system | 🗄️ |
 
-### Adding Custom Media Types
+Example:
+- Query: `"lab results January"` → Keywords matched: `["lab", "results"]` → Domain: **Health**
 
-The best way to get new media types included in this library is to register
-them with the IANA. The community registration procedure is outlined in
-[RFC 6838 section 5](http://tools.ietf.org/html/rfc6838#section-5). Types
-registered with the IANA are automatically pulled into this library.
+## 🛠️ Tech Stack
 
-If that is not possible / feasible, they can be added directly here as a
-"custom" type. To do this, it is required to have a primary source that
-definitively lists the media type. If an extension is going to be listed as
-associateed with this media type, the source must definitively link the
-media type and extension as well.
+- **Notion Workers:** TypeScript, `@notionhq/workers` SDK
+- **Cloudflare Workers:** TypeScript, Wrangler CLI
+- **APIs:** Notion Search API, Twilio WhatsApp API
+- **DevOps:** GitHub, wrangler secrets
 
-[ci-image]: https://badgen.net/github/checks/jshttp/mime-db/master?label=ci
-[ci-url]: https://github.com/jshttp/mime-db/actions?query=workflow%3Aci
-[coveralls-image]: https://badgen.net/coveralls/c/github/jshttp/mime-db/master
-[coveralls-url]: https://coveralls.io/r/jshttp/mime-db?branch=master
-[node-image]: https://badgen.net/npm/node/mime-db
-[node-url]: https://nodejs.org/en/download
-[npm-downloads-image]: https://badgen.net/npm/dm/mime-db
-[npm-url]: https://npmjs.org/package/mime-db
-[npm-version-image]: https://badgen.net/npm/v/mime-db
+## 📋 Tools (Notion Worker)
+
+### ✅ Live
+- **`classifyAndRespond`** — Classify message + search Notion + return results
+
+### 🚧 Planned
+- **`triageBacklog`** — Read backlog database, return priority-sorted items
+- **`dispatchBlueprint`** — Lightweight classifier (domain + confidence score)
+
+## 🔐 Environment Variables
+
+### Notion Worker (set via `ntn workers env set`)
+```
+NOTION_API_TOKEN=ntn_YOUR_TOKEN
+```
+
+### CF Adapter (set via `npx wrangler secret put`)
+```
+NOTION_API_TOKEN=ntn_YOUR_TOKEN
+TWILIO_ACCOUNT_SID=AC...
+TWILIO_AUTH_TOKEN=...
+```
+
+## 🧪 Testing
+
+### Local test (classify + search)
+```bash
+cd cortana-worker-full
+export NOTION_API_TOKEN=$(security find-generic-password -s "notion-cli" -a "YOUR_WORKSPACE_ID" -w)
+ntn workers exec classifyAndRespond -d '{"message":"lab results January"}'
+```
+
+### Test CF adapter
+```bash
+curl -X POST https://cortana-twilio-adapter.cortana-khanstruct.workers.dev/health
+# Should return: {"status":"ok"}
+```
+
+## 🐛 Known Issues & Fixes
+
+### Issue: `ntn workers deploy` returns `unauthorized`
+**Root cause:** macOS Keychain not returning auth token to CLI.
+**Fix:** Export env vars manually:
+```bash
+export NOTION_API_TOKEN=$(security find-generic-password -s "notion-cli" -a "YOUR_WORKSPACE_ID" -w)
+export NOTION_WORKSPACE_ID="YOUR_WORKSPACE_ID"
+```
+
+### Issue: Twilio replies fail with error 21910 (Invalid 'To')
+**Root cause:** Missing `whatsapp:` prefix on phone numbers.
+**Fix:** Ensure CF adapter uses `whatsapp:+1234567890` format.
+
+## 📸 Demo
+
+WhatsApp conversation:
+```
+You: "Tell me about R-Cubed"
+Cortana: "🟦 Work
+Found 4 result(s):
+• R.C Sales Review- Mar 22
+• Eventn R-Cubed — WordPress
+• HubSpot and R-Cubed Consulting"
+```
+
+## 🎓 The Story
+
+Built in one intense night session for the MLH Notion MCP Challenge. Hit a brutal `unauthorized` bug on `ntn workers deploy` for hours — turned out to be a macOS Keychain issue where the CLI couldn't read auth tokens back. Fix was exporting env vars manually. Finally deployed, wired up Twilio, and got end-to-end WhatsApp → Notion working.
+
+## 📚 References
+
+- [Notion Workers Documentation](https://developers.notion.com/docs/create-a-notion-app)
+- [Twilio WhatsApp Sandbox](https://www.twilio.com/docs/whatsapp/quickstart/node)
+- [Cloudflare Workers](https://developers.cloudflare.com/workers/)
+- [Notion API Reference](https://developers.notion.com/reference/intro)
+
+## 👤 Author
+
+**Zain Khan** (@zainkhan1994)
+- Studio: Khanstruct
+- Based in: Tulsa, OK
+
+## 📄 License
+
+MIT
+
+---
+
+**Submitted to:** MLH Notion MCP Challenge (March 2026)
+**Deadline:** March 29, 2026 11:59 PM PST

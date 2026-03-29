@@ -13,3 +13,8 @@ cf-adapter/dist/
 *.d.ts
 *.d.ts.map
 *.js.map
+*.tsbuildinfo
+.idea/
+.vscode/
+*.swp
+*.swo
