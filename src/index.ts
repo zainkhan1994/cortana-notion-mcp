@@ -244,8 +244,8 @@ async function searchNotionByDomain(
 	notionToken: string
 ): Promise<Array<{ id: string; title: string; url: string }>> {
 	try {
-		// Notion Search API endpoint
-		const response = await fetch("https://api.notion.com/v1/search", {
+		// Step 1: Search for pages
+		const searchResponse = await fetch("https://api.notion.com/v1/search", {
 			method: "POST",
 			headers: {
 				Authorization: `Bearer ${notionToken}`,
@@ -262,30 +262,59 @@ async function searchNotionByDomain(
 			}),
 		});
 
-		if (!response.ok) {
-			console.error(`Notion API error: ${response.status}`);
+		if (!searchResponse.ok) {
+			console.error(`Notion Search API error: ${searchResponse.status}`);
 			return [];
 		}
 
-		const data = (await response.json()) as any;
-		const results = data.results || [];
+		const searchData = (await searchResponse.json()) as any;
+		const results = searchData.results || [];
 
-		return results
-			.filter(
-				(item: any) =>
-					item.object === "page" &&
-					item.properties &&
-					(item.properties.Name || item.properties.Title)
-			)
-			.map((item: any) => ({
-				id: item.id,
-				title:
-					item.properties.Name?.title?.[0]?.text?.content ||
-					item.properties.Title?.title?.[0]?.text?.content ||
-					"Untitled",
-				url: item.url || "",
-			}))
-			.slice(0, 5);
+		// Step 2: Fetch full page details for each result to get actual title
+		const pages = await Promise.all(
+			results
+				.filter((item: any) => item.object === "page")
+				.slice(0, 5)
+				.map(async (item: any) => {
+					try {
+						const pageResponse = await fetch(`https://api.notion.com/v1/pages/${item.id}`, {
+							headers: {
+								Authorization: `Bearer ${notionToken}`,
+								"Notion-Version": "2022-06-28",
+							},
+						});
+
+						if (!pageResponse.ok) {
+							return null;
+						}
+
+						const pageData = (await pageResponse.json()) as any;
+						let title = "Untitled";
+
+						// Extract title from page properties
+						for (const [key, prop] of Object.entries(pageData.properties || {})) {
+							if ((prop as any).type === "title" && (prop as any).title) {
+								const titleArray = (prop as any).title as Array<{ plain_text: string }>;
+								if (titleArray.length > 0) {
+									title = titleArray.map((t) => t.plain_text).join("");
+									break;
+								}
+							}
+						}
+
+						return {
+							id: item.id,
+							title,
+							url: `https://notion.so/${item.id.replace(/-/g, "")}`,
+						};
+					} catch (error) {
+						console.error(`Error fetching page ${item.id}:`, error);
+						return null;
+					}
+				})
+		);
+
+		return pages.filter((p) => p !== null);
 	} catch (error) {
 		console.error("Notion search error:", error);
 		return [];

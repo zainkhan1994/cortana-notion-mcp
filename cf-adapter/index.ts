@@ -27,7 +27,8 @@ async function searchNotionByDomain(
 	token: string
 ): Promise<{ title: string; id: string; url: string }[]> {
 	try {
-		const response = await fetch("https://api.notion.com/v1/search", {
+		// Step 1: Search for pages
+		const searchResponse = await fetch("https://api.notion.com/v1/search", {
 			method: "POST",
 			headers: {
 				Authorization: `Bearer ${token}`,
@@ -36,30 +37,71 @@ async function searchNotionByDomain(
 			},
 			body: JSON.stringify({
 				query: query,
-				filter: {
-					value: "database",
-					property: "object",
-				},
 				page_size: 5,
 			}),
 		});
 
-		if (!response.ok) {
-			console.error(`Notion API error: ${response.status}`);
+		if (!searchResponse.ok) {
+			console.error(`Notion Search API error: ${searchResponse.status}`);
 			return [];
 		}
 
-		const data = (await response.json()) as {
-			results: Array<{ id: string; properties?: Record<string, unknown>; title?: string }>;
+		const searchData = (await searchResponse.json()) as {
+			results: Array<{ id: string; object: string }>;
 		};
 
-		return (
-			data.results?.slice(0, 5).map((item) => ({
-				title: (item as any).title || `Page ${item.id.slice(0, 8)}`,
-				id: item.id,
-				url: `https://notion.so/${item.id.replace(/-/g, "")}`,
-			})) || []
+		// Step 2: Fetch full page details for each result to get title
+		const results = await Promise.all(
+			(searchData.results || []).slice(0, 3).map(async (item) => {
+				try {
+					const pageResponse = await fetch(`https://api.notion.com/v1/pages/${item.id}`, {
+						headers: {
+							Authorization: `Bearer ${token}`,
+							"Notion-Version": "2022-06-28",
+						},
+					});
+
+					if (!pageResponse.ok) {
+						return null;
+					}
+
+					const pageData = (await pageResponse.json()) as {
+						properties: Record<
+							string,
+							{
+								title?: Array<{ plain_text: string }>;
+								rich_text?: Array<{ plain_text: string }>;
+								type: string;
+							}
+						>;
+					};
+
+					// Extract title from page properties
+					let title = "Untitled";
+					for (const [key, prop] of Object.entries(pageData.properties || {})) {
+						if (prop.type === "title" && prop.title && prop.title.length > 0) {
+							title = prop.title.map((t) => t.plain_text).join("");
+							break;
+						}
+					}
+
+					return {
+						title,
+						id: item.id,
+						url: `https://notion.so/${item.id.replace(/-/g, "")}`,
+					};
+				} catch (error) {
+					console.error(`Error fetching page ${item.id}:`, error);
+					return null;
+				}
+			})
 		);
+
+		return results.filter((r) => r !== null) as Array<{
+			title: string;
+			id: string;
+			url: string;
+		}>;
 	} catch (error) {
 		console.error("Search error:", error);
 		return [];
