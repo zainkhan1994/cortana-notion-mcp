@@ -1,0 +1,11 @@
+name = "cortana-twilio-adapter"
+main = "index.ts"
+compatibility_date = "2024-01-01"
+
+[env.production]
+vars = { TWILIO_WHATSAPP_FROM = "+14155238886" }
+
+[[env.production.secrets]]
+NOTION_API_TOKEN = ""
+TWILIO_ACCOUNT_SID = ""
+TWILIO_AUTH_TOKEN = ""
