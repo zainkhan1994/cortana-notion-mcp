@@ -1,0 +1,75 @@
+import type { SchemaBuilder } from "../schema-builder.js";
+import type { HandlerOptions, JSONValue } from "../types.js";
+import type { CapabilityContext } from "./context.js";
+export interface ToolConfiguration<I extends JSONValue, O extends JSONValue = JSONValue> {
+    title: string;
+    description: string;
+    schema: SchemaBuilder<I>;
+    outputSchema?: SchemaBuilder<O>;
+    execute: (input: I, context: CapabilityContext) => O | Promise<O>;
+}
+/**
+ * An error returned when the input to a tool doesn't match the input schema.
+ */
+export declare class InvalidToolInputError extends Error {
+    constructor(message: string);
+    toJSON(): {
+        name: string;
+        message: string;
+        trace: string | undefined;
+    };
+}
+/**
+ * An error returned when the output from a tool doesn't match the output schema.
+ */
+export declare class InvalidToolOutputError extends Error {
+    constructor(message: string);
+    toJSON(): {
+        name: string;
+        message: string;
+        trace: string | undefined;
+    };
+}
+/**
+ * An error returned when the tool execution fails.
+ */
+export declare class ToolExecutionError extends Error {
+    constructor(message: string);
+    toJSON(): {
+        name: string;
+        message: string;
+        trace: string | undefined;
+    };
+}
+export type ToolCapability<I extends JSONValue, O extends JSONValue = JSONValue> = ReturnType<typeof createToolCapability<I, O>>;
+/**
+ * Creates a capability definition for a tool to be used by an agent.
+ *
+ * @param config - The configuration for the tool.
+ * @returns A capability definition for the tool.
+ */
+export declare function createToolCapability<I extends JSONValue, O extends JSONValue = JSONValue>(key: string, config: ToolConfiguration<I, O>): {
+    _tag: "tool";
+    key: string;
+    config: {
+        title: string;
+        description: string;
+        schema: import("../json-schema.js").JSONSchema<I>;
+        outputSchema: import("../json-schema.js").JSONSchema<O> | undefined;
+    };
+    handler: {
+        (input: JSONValue, options: HandlerOptions): Promise<O>;
+        (input: JSONValue): Promise<{
+            _tag: "success";
+            value: O;
+        } | {
+            _tag: "error";
+            error: {
+                name: string;
+                message: string;
+                trace: string | undefined;
+            };
+        }>;
+    };
+};
+//# sourceMappingURL=tool.d.ts.map
