@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Cortana Notion MCP — Demo</title>
+		<style>
+			:root {
+				color-scheme: light dark;
+				--bg: #0b0c10;
+				--card: #15171d;
+				--text: #f2f2f2;
+				--muted: #a2a8b3;
+				--accent: #5ea1ff;
+				--border: #2a2f3a;
+			}
+			@media (prefers-color-scheme: light) {
+				:root {
+					--bg: #f6f8fb;
+					--card: #ffffff;
+					--text: #101217;
+					--muted: #5a6474;
+					--accent: #1e6fff;
+					--border: #dbe2ee;
+				}
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				font-family:
+					Inter,
+					system-ui,
+					-apple-system,
+					Segoe UI,
+					Roboto,
+					sans-serif;
+				background: var(--bg);
+				color: var(--text);
+				min-height: 100vh;
+				display: grid;
+				place-items: center;
+				padding: 1rem;
+			}
+			.card {
+				width: 100%;
+				max-width: 760px;
+				background: var(--card);
+				border: 1px solid var(--border);
+				border-radius: 16px;
+				padding: 1.25rem;
+			}
+			h1 {
+				margin: 0 0 0.5rem;
+				font-size: 1.4rem;
+			}
+			p {
+				margin: 0.25rem 0 1rem;
+				color: var(--muted);
+			}
+			.row {
+				display: flex;
+				gap: 0.5rem;
+			}
+			input {
+				flex: 1;
+				padding: 0.75rem 0.9rem;
+				border-radius: 10px;
+				border: 1px solid var(--border);
+				background: transparent;
+				color: inherit;
+				font-size: 0.96rem;
+			}
+			button {
+				padding: 0.75rem 1rem;
+				border: 0;
+				border-radius: 10px;
+				background: var(--accent);
+				color: white;
+				font-weight: 600;
+				cursor: pointer;
+			}
+			.samples {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.5rem;
+				margin-top: 0.8rem;
+			}
+			.samples button {
+				background: transparent;
+				color: inherit;
+				border: 1px solid var(--border);
+				font-weight: 500;
+				padding: 0.45rem 0.7rem;
+			}
+			.result {
+				margin-top: 1rem;
+				border: 1px solid var(--border);
+				border-radius: 12px;
+				padding: 0.85rem;
+			}
+			.muted {
+				color: var(--muted);
+				font-size: 0.9rem;
+			}
+			ul {
+				margin: 0.5rem 0 0;
+				padding-left: 1.2rem;
+			}
+			li {
+				margin: 0.2rem 0;
+			}
+		</style>
+	</head>
+	<body>
+		<main class="card">
+			<h1>🤖 Cortana Notion MCP — Simple Demo</h1>
+			<p>
+				Client-side demo of the same keyword classification used by the project. No API
+				keys needed.
+			</p>
+
+			<div class="row">
+				<input
+					id="messageInput"
+					type="text"
+					placeholder='Try: "lab results January" or "Tell me about R-Cubed"'
+				/>
+				<button id="classifyBtn" type="button">Classify</button>
+			</div>
+
+			<div class="samples">
+				<button type="button" data-sample="lab results January">Health sample</button>
+				<button type="button" data-sample="Tell me about R-Cubed">Work sample</button>
+				<button type="button" data-sample="github project launch">Projects sample</button>
+				<button type="button" data-sample="learning ai course">Growth sample</button>
+				<button type="button" data-sample="family weekend plans">Personal sample</button>
+				<button type="button" data-sample="kpi dashboard report">Data sample</button>
+			</div>
+
+			<section id="result" class="result">
+				<div><strong>Domain:</strong> —</div>
+				<div class="muted">Matched keywords: —</div>
+				<ul id="fakeResults"></ul>
+			</section>
+		</main>
+
+		<script>
+			const keywords = {
+				Personal: ["meeting", "friends", "weekend", "personal", "family", "social"],
+				Health: ["lab", "results", "doctor", "health", "fitness", "wellness", "medical"],
+				Projects: ["build", "launch", "shipped", "project", "github", "code"],
+				Work: ["r-cubed", "client", "proposal", "deal", "closed", "revenue", "business"],
+				Growth: ["learn", "course", "skill", "certification", "improve", "development"],
+				Data: ["metrics", "analytics", "revenue", "dashboard", "kpi", "report", "stats"],
+			};
+
+			const domainEmoji = {
+				Personal: "🟥",
+				Health: "🟨",
+				Projects: "🟪",
+				Work: "🟦",
+				Growth: "⬛",
+				Data: "🗄️",
+			};
+
+			const fakeNotionResults = {
+				Health: ["Bloodwork Notes", "Supplements Tracker", "Health Dashboard"],
+				Work: ["R-Cubed Sales Review", "Client Pipeline", "Q1 Revenue Plan"],
+				Projects: ["Cortana Build Log", "GitHub Issues", "Launch Checklist"],
+				Growth: ["AI Learning Plan", "Course Notes", "Skills Roadmap"],
+				Personal: ["Weekend Plans", "Family Notes", "Personal Tasks"],
+				Data: ["KPI Dashboard", "Metrics Archive", "Weekly Report"],
+			};
+
+			function classifyQuery(text) {
+				const lowerText = (text || "").toLowerCase();
+				const scores = {};
+				const matched = {};
+
+				for (const [domain, words] of Object.entries(keywords)) {
+					const found = words.filter((w) => lowerText.includes(w));
+					scores[domain] = found.length;
+					matched[domain] = found;
+				}
+
+				const sorted = Object.entries(scores).sort(([, a], [, b]) => b - a);
+				const topDomain = sorted[0] ? sorted[0][0] : "Personal";
+				return { domain: topDomain, matched: matched[topDomain] || [] };
+			}
+
+			function renderResult() {
+				const input = document.getElementById("messageInput");
+				const result = document.getElementById("result");
+				const fakeResults = document.getElementById("fakeResults");
+				const { domain, matched } = classifyQuery(input.value);
+
+				result.children[0].innerHTML = `<strong>Domain:</strong> ${domainEmoji[domain] || "❓"} ${domain}`;
+				result.children[1].textContent = `Matched keywords: ${matched.length ? matched.join(", ") : "none (defaulted)"}`;
+
+				fakeResults.innerHTML = "";
+				(fakeNotionResults[domain] || []).forEach((title) => {
+					const li = document.createElement("li");
+					li.textContent = title;
+					fakeResults.appendChild(li);
+				});
+			}
+
+			document.getElementById("classifyBtn").addEventListener("click", renderResult);
+			document.getElementById("messageInput").addEventListener("keydown", (event) => {
+				if (event.key === "Enter") renderResult();
+			});
+
+			document.querySelectorAll("[data-sample]").forEach((button) => {
+				button.addEventListener("click", () => {
+					document.getElementById("messageInput").value = button.dataset.sample;
+					renderResult();
+				});
+			});
+		</script>
+	</body>
+</html>

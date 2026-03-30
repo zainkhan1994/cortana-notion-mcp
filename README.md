@@ -4,6 +4,12 @@
 
 Send a message to WhatsApp, get instant results from your Notion database. Built for the MLH Notion MCP Challenge (March 2026).
 
+## 🌐 Super Simple Frontend Demo (GitHub Pages)
+
+- Open `docs/index.html` locally for a no-setup frontend demo.
+- To deploy: Repository **Settings → Pages → Deploy from a branch → `main` / `docs`**.
+- Live URL pattern: `https://zainkhan1994.github.io/cortana-notion-mcp/`
+
 ## 🎯 What It Does
 
 1. **You send a WhatsApp message** (e.g., "lab results January")
