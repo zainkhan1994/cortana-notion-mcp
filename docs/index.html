@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Cortana Notion MCP — Demo</title>
+		<title>WhatsApp → Notion MCP — Demo</title>
 		<style>
 			:root {
 				color-scheme: light dark;
@@ -115,7 +115,7 @@
 	</head>
 	<body>
 		<main class="card">
-			<h1>🤖 Cortana Notion MCP — Simple Demo</h1>
+			<h1>🤖 WhatsApp → Notion MCP — Simple Demo</h1>
 			<p>
 				Client-side demo of the same keyword classification used by the project. No API
 				keys needed.
@@ -147,6 +147,8 @@
 		</main>
 
 		<script>
+			const DEFAULT_DOMAIN = "Personal";
+
 			const keywords = {
 				Personal: ["meeting", "friends", "weekend", "personal", "family", "social"],
 				Health: ["lab", "results", "doctor", "health", "fitness", "wellness", "medical"],
@@ -168,7 +170,7 @@
 			const fakeNotionResults = {
 				Health: ["Bloodwork Notes", "Supplements Tracker", "Health Dashboard"],
 				Work: ["R-Cubed Sales Review", "Client Pipeline", "Q1 Revenue Plan"],
-				Projects: ["Cortana Build Log", "GitHub Issues", "Launch Checklist"],
+				Projects: ["Project Build Log", "GitHub Issues", "Launch Checklist"],
 				Growth: ["AI Learning Plan", "Course Notes", "Skills Roadmap"],
 				Personal: ["Weekend Plans", "Family Notes", "Personal Tasks"],
 				Data: ["KPI Dashboard", "Metrics Archive", "Weekly Report"],
@@ -186,7 +188,7 @@
 				}
 
 				const sorted = Object.entries(scores).sort(([, a], [, b]) => b - a);
-				const topDomain = sorted[0] ? sorted[0][0] : "Personal";
+				const topDomain = sorted[0] ? sorted[0][0] : DEFAULT_DOMAIN;
 				return { domain: topDomain, matched: matched[topDomain] || [] };
 			}
 
@@ -195,8 +197,21 @@
 				const result = document.getElementById("result");
 				const fakeResults = document.getElementById("fakeResults");
 				const { domain, matched } = classifyQuery(input.value);
+				const emoji = domainEmoji[domain] || "❓";
+				const emojiLabel = `${domain} domain`;
 
-				result.children[0].innerHTML = `<strong>Domain:</strong> ${domainEmoji[domain] || "❓"} ${domain}`;
+				const domainLine = result.children[0];
+				domainLine.textContent = "";
+				const strong = document.createElement("strong");
+				strong.textContent = "Domain:";
+				const space1 = document.createTextNode(" ");
+				const emojiSpan = document.createElement("span");
+				emojiSpan.setAttribute("role", "img");
+				emojiSpan.setAttribute("aria-label", emojiLabel);
+				emojiSpan.textContent = emoji;
+				const space2 = document.createTextNode(" ");
+				const domainText = document.createTextNode(domain);
+				domainLine.append(strong, space1, emojiSpan, space2, domainText);
 				result.children[1].textContent = `Matched keywords: ${matched.length ? matched.join(", ") : "none (defaulted)"}`;
 
 				fakeResults.innerHTML = "";
